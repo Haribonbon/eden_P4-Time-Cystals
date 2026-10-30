@@ -160,7 +160,7 @@ const dgClockLines=[];
 });
 // 砂時計アイコン（黄枠・紫枠）は非表示。接続線とAoEのみ表示。
 function dgAssignment(){let v=$('dragonSpot').value;if(v==='off')return -1;if(v!=='auto')return +v;return String(state.debuff).startsWith('赤')?-2:-1}
-function dgReset(){dgMissed=false;dgMissScreen.style.display='none';dgBlueUsed=[false,false,false,false];dgCleared=[false,false,false,false];dgFailed=[false,false,false,false];dgEvents=[];dgContactEffects.forEach(e=>e.g.remove());dgContactEffects.length=0;dgBlueReleaseUsed.fill(false);dgAoEHitChecked.fill(false);dgLast=0;dgStarted=false;dgRender()}
+function dgReset(){dgPreviousContactSample=null;dgMissed=false;dgMissScreen.style.display='none';dgBlueUsed=[false,false,false,false];dgCleared=[false,false,false,false];dgFailed=[false,false,false,false];dgEvents=[];dgContactEffects.forEach(e=>e.g.remove());dgContactEffects.length=0;dgBlueReleaseUsed.fill(false);dgAoEHitChecked.fill(false);dgLast=0;dgStarted=false;dgRender()}
 function dgRender(){const t=elapsed,local=t-5,assignment=dgAssignment();dgLayer.style.display=t>=3&&t<=43?'block':'none';dgTrack.style.display=t>=5&&t<=17.5?'':'none';dgClockLayer.style.display=t>=3&&t<20?'':'none';
 dgClockLines.forEach(l=>{if(l.a===1)l.node.style.display=state.hourglass==='left'?'':'none';else if(l.a===3)l.node.style.display=state.hourglass==='right'?'':'none';else l.node.style.display='';});
 for(const h of dgHourglass){h.nodes.forEach(n=>{n.style.display=t>=h.at&&t<h.blast+.35?'':'none';n.setAttribute('fill-opacity',t>=h.blast?'.78':'.43')})}
@@ -181,6 +181,7 @@ for(let side=0;side<2;side++){
 const status=$('dragonStatus');const missed=dgFailed.some(Boolean);const cleared=assignment===-2?dgCleared.some(Boolean):assignment>=0&&dgCleared[assignment];status.textContent=`本編 ${t.toFixed(1)}秒／竜 ${Math.max(0,local).toFixed(1)}秒　${cleared?'赤デバフ解除成功':missed?'ギミックミス：竜未接触':assignment===-1?'竜ギミック操作対象外':'赤デバフ未解除'}　（担当：${assignment===-2?'自動（全4地点）':assignment<0?'なし':dgSpots[assignment].name}）`;
 }
 let dgMissed=false;
+let dgPreviousContactSample=null;
 const dgMissScreen=document.createElement('div');
 dgMissScreen.id='dgMissScreen';
 dgMissScreen.style.cssText='position:absolute;inset:0;z-index:80;display:none;align-items:center;justify-content:center;flex-direction:column;background:rgba(12,0,9,.72);color:#fff;pointer-events:auto;text-align:center;';
@@ -193,7 +194,10 @@ function dgMiss(reason){
  $('dgMissReason').textContent=reason;dgMissScreen.style.display='flex';
  log('MISS：'+reason);updateTimer();
 }
-function dgTick(){if(dgMissed)return;const t=elapsed;const assignment=dgAssignment();if(t<dgLast-.3){dgReset()}dgLast=t;
+function dgTick(){if(dgMissed)return;const t=elapsed;const assignment=dgAssignment();if(t<dgLast-.3){dgReset()}
+const dgPrior=dgPreviousContactSample;
+dgPreviousContactSample={t,x:state.x,y:state.y};
+dgLast=t;
 // 砂時計の円形AoE：爆発時点のプレイヤー位置でのみ判定。
 for(let k=0;k<dgHourglass.length;k++){
  const h=dgHourglass[k];
@@ -214,18 +218,32 @@ const redCandidate=String(state.debuff).startsWith('赤');
 // 4→D→3→C（左回り）、1→B→2→C（右回り）の両ルートで、
 // 緑の円を移動する竜の現在位置とキャラクターの距離を毎フレーム判定。
 // 赤担当はどちらかの竜に一度接触すれば解除完了。
-if(redCandidate && t>=5 && t<17.5 && !dgCleared.some(Boolean)){
- for(let side=0;side<2;side++){
-  const deg=dgDragonAngle(side,t);
-  const p=dgPoint(deg);
-  if(Math.hypot(state.x-p.x,state.y-p.y)<=48){
-   const i=t<12.5?side:side+2;
-   dgCleared[i]=true;
-   dgEvents.push({i,t});
-   dgContactEffect(p,t,side);
-   $('message').textContent='赤デバフ解除成功：'+(side===0?'4→D→3→C':'1→B→2→C')+' の竜に接触';
-   log('竜の首接触成功：'+(side===0?'4→D→3→C':'1→B→2→C'));
-   break;
+// 毎フレームの点判定だけでは、フレーム間に通過した竜を取りこぼす。
+// 前フレームから現在までの竜・プレイヤーの相対移動を線分として判定する。
+if(redCandidate && t>=5 && !dgCleared.some(Boolean)){
+ const t0=dgPrior&&dgPrior.t>=5&&dgPrior.t<=t?dgPrior.t:t;
+ const t1=Math.min(t,17.5);
+ if(t0<=17.5&&t1>=t0){
+  for(let side=0;side<2;side++){
+   const p0=dgPoint(dgDragonAngle(side,t0));
+   const p1=dgPoint(dgDragonAngle(side,t1));
+   const player0=dgPrior&&t0===dgPrior.t?dgPrior:{x:state.x,y:state.y};
+   const rx0=player0.x-p0.x,ry0=player0.y-p0.y;
+   const rx1=state.x-p1.x,ry1=state.y-p1.y;
+   const dx=rx1-rx0,dy=ry1-ry0;
+   const u=Math.max(0,Math.min(1,-(rx0*dx+ry0*dy)/(dx*dx+dy*dy||1)));
+   const dist=Math.hypot(rx0+u*dx,ry0+u*dy);
+   if(dist<=48){
+    const hitTime=t0+(t1-t0)*u;
+    const hitPoint=dgPoint(dgDragonAngle(side,hitTime));
+    const i=hitTime<12.5?side:side+2;
+    dgCleared[i]=true;
+    dgEvents.push({i,t:hitTime});
+    dgContactEffect(hitPoint,hitTime,side);
+    $('message').textContent='赤デバフ解除成功：'+(side===0?'4→D→3→C':'1→B→2→C')+' の竜に接触';
+    log('竜の首接触成功：'+(side===0?'4→D→3→C':'1→B→2→C')+'（'+hitTime.toFixed(1)+'秒）');
+    break;
+   }
   }
  }
 }

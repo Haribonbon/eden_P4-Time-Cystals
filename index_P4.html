@@ -27,7 +27,7 @@ function holyGuideRole(){
  }
  return 'none';
 }
-function holyGuidePosition(){return {x:state.hourglass==='right'?175:720,y:96};}
+function holyGuidePosition(){return {x:state.hourglass==='right'?152:746,y:state.hourglass==='right'?152:151};}
 
 function draw(){let out='';if(state.phase>=1&&state.phase<=3){const flip=state.hourglass==='right'?-1:1;const pts=[[448,165],[235,300],[661,300],[235,610],[661,610],[448,752]];out+=pts.map(([x,y],i)=>{let xx=448+(x-448)*flip;let hue=(i===0||i===5)?'#e8c76d':'#7fe8ff';return `<g opacity=".96" transform="translate(${xx} ${y})"><rect x="-24" y="-57" width="48" height="114" rx="23" fill="#091c32" stroke="#b3b4ff" stroke-width="5"/><rect x="-18" y="-50" width="36" height="100" rx="18" fill="#103e4c" stroke="#68dcff" stroke-width="2"/><path d="M0 -32 V32" stroke="#b5f9ff" stroke-width="7"/>${[-33,0,33].map(z=>`<circle cy="${z}" r="13" fill="${hue}" stroke="white" stroke-width="4"/>`).join('')}</g>`}).join('');}if(elapsed>=18&&elapsed<32){
 const t=elapsed-18;
@@ -100,7 +100,7 @@ if(state.guide && elapsed>=8 && elapsed<15){
     <circle cx="${gx}" cy="${gy}" r="14" fill="none" stroke="#68dfff" stroke-width="2"/>
     <circle cx="${gx}" cy="${gy}" r="4" fill="#ffffff"/>
     <!-- 吹き出しはフィールドの円形外周より上側へ配置（左右のパターンで鏡像配置） -->
-    <path d="${state.hourglass==='right'?'M 198 81 L 217 65 L 225 77 Z':'M 697 81 L 678 65 L 670 77 Z'}" fill="#203b53" stroke="#68dfff" stroke-width="2" stroke-linejoin="round"/>
+    <path d="${state.hourglass==='right'?'M 170 135 L 217 65 L 225 77 Z':'M 728 134 L 678 65 L 670 77 Z'}" fill="#203b53" stroke="#68dfff" stroke-width="2" stroke-linejoin="round"/>
     <rect x="${state.hourglass==='right'?217:458}" y="12" width="220" height="66" rx="12" fill="#15283d" fill-opacity=".96" stroke="#68dfff" stroke-width="2.5"/>
     <text x="${state.hourglass==='right'?327:568}" y="39" text-anchor="middle" fill="#ffffff" font-size="19" font-weight="700" paint-order="stroke" stroke="#15283d" stroke-width="2">${esc(guideLines[0])}</text>
     <text x="${state.hourglass==='right'?327:568}" y="64" text-anchor="middle" fill="#ffffff" font-size="19" font-weight="700" paint-order="stroke" stroke="#15283d" stroke-width="2">${esc(guideLines[1]||'')}</text>
